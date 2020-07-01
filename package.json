@@ -90,7 +90,7 @@
     "screenfull": "^5.0.2",
     "sinon": "^9.0.2",
     "snazzy": "^8.0.0",
-    "standard": "^14.3.3",
+    "standard": "^14.3.4",
     "style-loader": "^1.0.0",
     "webpack": "^4.42.1",
     "webpack-cli": "^3.3.11",
@@ -101,7 +101,8 @@
     "load-script": "^1.0.0",
     "memoize-one": "^5.1.1",
     "prop-types": "^15.7.2",
-    "react-fast-compare": "^3.0.1"
+    "react-fast-compare": "^3.0.1",
+    "shaka-player": "^2.5.6"
   },
   "postcss": {
     "plugins": {

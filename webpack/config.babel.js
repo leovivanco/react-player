@@ -3,7 +3,7 @@ import webpack from 'webpack'
 import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 import HtmlWebpackPlugin from 'html-webpack-plugin'
 
-const PORT = 3000
+const PORT = 8080
 const PRODUCTION = process.env.NODE_ENV === 'production'
 // const LOCAL_IDENT_NAME = PRODUCTION ? '[hash:base64:5]' : '[name]__[local]__[hash:base64:5]'
 const PUBLIC_PATH = PRODUCTION ? '' : `http://localhost:${PORT}/`

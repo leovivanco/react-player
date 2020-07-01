@@ -1,20 +1,36 @@
 import React, { Component } from 'react'
+import shaka from 'shaka-player'
 
-import { getSDK, isMediaStream, supportsWebKitPresentationMode } from '../utils'
-import { canPlay, AUDIO_EXTENSIONS, HLS_EXTENSIONS, DASH_EXTENSIONS } from '../patterns'
+import {
+  getSDK,
+  isMediaStream,
+  supportsWebKitPresentationMode
+} from '../utils'
+import {
+  canPlay,
+  AUDIO_EXTENSIONS,
+  HLS_EXTENSIONS,
+  DASH_EXTENSIONS
+} from '../patterns'
 
-const IOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream
-const HLS_SDK_URL = 'https://cdn.jsdelivr.net/npm/hls.js@VERSION/dist/hls.min.js'
+const IOS =
+  typeof navigator !== 'undefined' &&
+  /iPad|iPhone|iPod/.test(navigator.userAgent) &&
+  !window.MSStream
+const HLS_SDK_URL =
+  'https://cdn.jsdelivr.net/npm/hls.js@VERSION/dist/hls.min.js'
 const HLS_GLOBAL = 'Hls'
-const DASH_SDK_URL = 'https://cdnjs.cloudflare.com/ajax/libs/dashjs/VERSION/dash.all.min.js'
+const DASH_SDK_URL =
+  'https://cdnjs.cloudflare.com/ajax/libs/dashjs/VERSION/dash.all.min.js'
 const DASH_GLOBAL = 'dashjs'
 const MATCH_DROPBOX_URL = /www\.dropbox\.com\/.+/
 const MATCH_CLOUDFLARE_STREAM = /https:\/\/watch\.cloudflarestream\.com\/([a-z0-9]+)/
-const REPLACE_CLOUDFLARE_STREAM = 'https://videodelivery.net/{id}/manifest/video.m3u8'
+const REPLACE_CLOUDFLARE_STREAM =
+  'https://videodelivery.net/{id}/manifest/video.m3u8'
 
 export default class FilePlayer extends Component {
-  static displayName = 'FilePlayer'
-  static canPlay = canPlay.file
+  static displayName = 'FilePlayer';
+  static canPlay = canPlay.file;
 
   componentDidMount () {
     this.props.onMount && this.props.onMount(this)
@@ -50,7 +66,10 @@ export default class FilePlayer extends Component {
     player.addEventListener('error', this.onError)
     player.addEventListener('enterpictureinpicture', this.onEnablePIP)
     player.addEventListener('leavepictureinpicture', this.onDisablePIP)
-    player.addEventListener('webkitpresentationmodechanged', this.onPresentationModeChange)
+    player.addEventListener(
+      'webkitpresentationmodechanged',
+      this.onPresentationModeChange
+    )
     if (playsinline) {
       player.setAttribute('playsinline', '')
       player.setAttribute('webkit-playsinline', '')
@@ -69,28 +88,31 @@ export default class FilePlayer extends Component {
     player.removeEventListener('error', this.onError)
     player.removeEventListener('enterpictureinpicture', this.onEnablePIP)
     player.removeEventListener('leavepictureinpicture', this.onDisablePIP)
-    player.removeEventListener('webkitpresentationmodechanged', this.onPresentationModeChange)
+    player.removeEventListener(
+      'webkitpresentationmodechanged',
+      this.onPresentationModeChange
+    )
   }
 
   // Proxy methods to prevent listener leaks
-  onReady = (...args) => this.props.onReady(...args)
-  onPlay = (...args) => this.props.onPlay(...args)
-  onBuffer = (...args) => this.props.onBuffer(...args)
-  onBufferEnd = (...args) => this.props.onBufferEnd(...args)
-  onPause = (...args) => this.props.onPause(...args)
-  onEnded = (...args) => this.props.onEnded(...args)
-  onError = (...args) => this.props.onError(...args)
-  onEnablePIP = (...args) => this.props.onEnablePIP(...args)
+  onReady = (...args) => this.props.onReady(...args);
+  onPlay = (...args) => this.props.onPlay(...args);
+  onBuffer = (...args) => this.props.onBuffer(...args);
+  onBufferEnd = (...args) => this.props.onBufferEnd(...args);
+  onPause = (...args) => this.props.onPause(...args);
+  onEnded = (...args) => this.props.onEnded(...args);
+  onError = (...args) => this.props.onError(...args);
+  onEnablePIP = (...args) => this.props.onEnablePIP(...args);
 
-  onDisablePIP = e => {
+  onDisablePIP = (e) => {
     const { onDisablePIP, playing } = this.props
     onDisablePIP(e)
     if (playing) {
       this.play()
     }
-  }
+  };
 
-  onPresentationModeChange = e => {
+  onPresentationModeChange = (e) => {
     if (this.player && supportsWebKitPresentationMode(this.player)) {
       const { webkitPresentationMode } = this.player
       if (webkitPresentationMode === 'picture-in-picture') {
@@ -99,11 +121,11 @@ export default class FilePlayer extends Component {
         this.onDisablePIP(e)
       }
     }
-  }
+  };
 
-  onSeek = e => {
+  onSeek = (e) => {
     this.props.onSeek(e.target.currentTime)
-  }
+  };
 
   shouldUseAudio (props) {
     if (props.config.forceVideo) {
@@ -130,7 +152,14 @@ export default class FilePlayer extends Component {
   }
 
   load (url) {
-    const { hlsVersion, hlsOptions, dashVersion } = this.props.config
+    const {
+      hlsVersion,
+      hlsOptions,
+      dashVersion,
+      drm,
+      forceSHAKA
+    } = this.props.config
+    const { setHlsPolyNet, setDashPolyNet, setPrometheanTv } = this.props
     if (this.hls) {
       this.hls.destroy()
     }
@@ -138,32 +167,74 @@ export default class FilePlayer extends Component {
       this.dash.reset()
     }
     if (this.shouldUseHLS(url)) {
-      getSDK(HLS_SDK_URL.replace('VERSION', hlsVersion), HLS_GLOBAL).then(Hls => {
-        this.hls = new Hls(hlsOptions)
-        this.hls.on(Hls.Events.ERROR, (e, data) => {
-          this.props.onError(e, data, this.hls, Hls)
-        })
-        if (MATCH_CLOUDFLARE_STREAM.test(url)) {
-          const id = url.match(MATCH_CLOUDFLARE_STREAM)[1]
-          console.log(REPLACE_CLOUDFLARE_STREAM.replace('{id}', id))
-          this.hls.loadSource(REPLACE_CLOUDFLARE_STREAM.replace('{id}', id))
-        } else {
-          this.hls.loadSource(url)
+      getSDK(HLS_SDK_URL.replace('VERSION', hlsVersion), HLS_GLOBAL).then(
+        (Hls) => {
+          this.hls = new Hls(hlsOptions)
+          this.hls.on(Hls.Events.ERROR, (e, data) => {
+            this.props.onError(e, data, this.hls, Hls)
+          })
+          if (setHlsPolyNet) setHlsPolyNet(this.hls)
+          if (MATCH_CLOUDFLARE_STREAM.test(url)) {
+            const id = url.match(MATCH_CLOUDFLARE_STREAM)[1]
+            console.log(REPLACE_CLOUDFLARE_STREAM.replace('{id}', id))
+            this.hls.loadSource(REPLACE_CLOUDFLARE_STREAM.replace('{id}', id))
+          } else {
+            this.hls.loadSource(url)
+          }
+          this.hls.attachMedia(this.player)
         }
-        this.hls.attachMedia(this.player)
-      })
+      )
     }
     if (this.shouldUseDASH(url)) {
-      getSDK(DASH_SDK_URL.replace('VERSION', dashVersion), DASH_GLOBAL).then(dashjs => {
-        this.dash = dashjs.MediaPlayer().create()
-        this.dash.initialize(this.player, url, this.props.playing)
-        this.dash.on('error', this.props.onError)
-        if (parseInt(dashVersion) < 3) {
-          this.dash.getDebug().setLogToBrowserConsole(false)
+      if (forceSHAKA) {
+        shaka.polyfill.installAll()
+        // Check to see if the browser supports the basic APIs Shaka needs.
+        if (shaka.Player.isBrowserSupported()) {
+          this.shaka = new shaka.Player(this.player)
+
+          if (setDashPolyNet) setDashPolyNet(this.shaka)
+          if (drm && Object.keys(drm).length) {
+            this.shaka.configure({ drm })
+          }
+
+          this.shaka
+            .load(url)
+            .then(() => console.log('Video loaded successfully'))
+            .catch((e) => console.error('Failed to load video', e))
         } else {
-          this.dash.updateSettings({ debug: { logLevel: dashjs.Debug.LOG_LEVEL_NONE } })
+          // This browser does not have the minimum set of APIs we need.
+          console.error('Browser not supported!')
         }
-      })
+      } else {
+        getSDK(DASH_SDK_URL.replace('VERSION', dashVersion), DASH_GLOBAL).then(
+          (dashjs) => {
+            this.dash = dashjs.MediaPlayer().create()
+            if (setDashPolyNet) setDashPolyNet(this.dash)
+            this.dash.initialize(this.player, url, this.props.playing)
+            if (setPrometheanTv) setPrometheanTv('dash', this.dash)
+            this.dash.on('error', this.props.onError)
+            if (parseInt(dashVersion) < 3) {
+              this.dash.getDebug().setLogToBrowserConsole(false)
+            } else {
+              this.dash.updateSettings({
+                debug: { logLevel: dashjs.Debug.LOG_LEVEL_NONE }
+              })
+            }
+            if (drm && drm.servers) {
+              const keys = Object.keys(drm.servers)
+
+              if (keys.length) {
+                this.dash.setProtectionData({
+                  [keys[0]]: {
+                    serverURL: drm.servers[keys[0]]
+                  }
+                })
+              }
+              // this.dash.getDebug().setLogToBrowserConsole(false)
+            }
+          }
+        )
+      }
     }
 
     if (url instanceof Array) {
@@ -209,24 +280,36 @@ export default class FilePlayer extends Component {
 
   mute = () => {
     this.player.muted = true
-  }
+  };
 
   unmute = () => {
     this.player.muted = false
-  }
+  };
 
   enablePIP () {
-    if (this.player.requestPictureInPicture && document.pictureInPictureElement !== this.player) {
+    if (
+      this.player.requestPictureInPicture &&
+      document.pictureInPictureElement !== this.player
+    ) {
       this.player.requestPictureInPicture()
-    } else if (supportsWebKitPresentationMode(this.player) && this.player.webkitPresentationMode !== 'picture-in-picture') {
+    } else if (
+      supportsWebKitPresentationMode(this.player) &&
+      this.player.webkitPresentationMode !== 'picture-in-picture'
+    ) {
       this.player.webkitSetPresentationMode('picture-in-picture')
     }
   }
 
   disablePIP () {
-    if (document.exitPictureInPicture && document.pictureInPictureElement === this.player) {
+    if (
+      document.exitPictureInPicture &&
+      document.pictureInPictureElement === this.player
+    ) {
       document.exitPictureInPicture()
-    } else if (supportsWebKitPresentationMode(this.player) && this.player.webkitPresentationMode !== 'inline') {
+    } else if (
+      supportsWebKitPresentationMode(this.player) &&
+      this.player.webkitPresentationMode !== 'inline'
+    ) {
       this.player.webkitSetPresentationMode('inline')
     }
   }
@@ -282,22 +365,31 @@ export default class FilePlayer extends Component {
       return <source key={index} src={source} />
     }
     return <source key={index} {...source} />
-  }
+  };
 
   renderTrack = (track, index) => {
     return <track key={index} {...track} />
-  }
+  };
 
-  ref = player => {
+  ref = (player) => {
     if (this.player) {
       // Store previous player to be used by removeListeners()
       this.prevPlayer = this.player
     }
     this.player = player
-  }
+  };
 
   render () {
-    const { url, playing, loop, controls, muted, config, width, height } = this.props
+    const {
+      url,
+      playing,
+      loop,
+      controls,
+      muted,
+      config,
+      width,
+      height
+    } = this.props
     const useAudio = this.shouldUseAudio(this.props)
     const Element = useAudio ? 'audio' : 'video'
     const style = {
@@ -316,8 +408,7 @@ export default class FilePlayer extends Component {
         loop={loop}
         {...config.attributes}
       >
-        {url instanceof Array &&
-          url.map(this.renderSourceElement)}
+        {url instanceof Array && url.map(this.renderSourceElement)}
         {config.tracks.map(this.renderTrack)}
       </Element>
     )
