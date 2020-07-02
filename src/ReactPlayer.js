@@ -20,39 +20,48 @@ const customPlayers = []
 
 export const createReactPlayer = (players, fallback) => {
   return class ReactPlayer extends Component {
-    static displayName = 'ReactPlayer'
-    static propTypes = propTypes
-    static defaultProps = defaultProps
-    static addCustomPlayer = player => { customPlayers.push(player) }
-    static removeCustomPlayers = () => { customPlayers.length = 0 }
+    static displayName = 'ReactPlayer';
+    static propTypes = propTypes;
+    static defaultProps = defaultProps;
+    static addCustomPlayer = (player) => {
+      customPlayers.push(player)
+    };
 
-    static canPlay = url => {
+    static removeCustomPlayers = () => {
+      customPlayers.length = 0
+    };
+
+    static canPlay = (url) => {
       for (const Player of [...customPlayers, ...players]) {
         if (Player.canPlay(url)) {
           return true
         }
       }
       return false
-    }
+    };
 
-    static canEnablePIP = url => {
+    static canEnablePIP = (url) => {
       for (const Player of [...customPlayers, ...players]) {
         if (Player.canEnablePIP && Player.canEnablePIP(url)) {
           return true
         }
       }
       return false
-    }
+    };
 
     state = {
       showPreview: !!this.props.light
-    }
+    };
 
     // Use references, as refs is used by React
     references = {
-      wrapper: wrapper => { this.wrapper = wrapper },
-      player: player => { this.player = player }
-    }
+      wrapper: (wrapper) => {
+        this.wrapper = wrapper
+      },
+      player: (player) => {
+        this.player = player
+      }
+    };
 
     shouldComponentUpdate (nextProps, nextState) {
       return !isEqual(this.props, nextProps) || !isEqual(this.state, nextState)
@@ -70,42 +79,42 @@ export const createReactPlayer = (players, fallback) => {
 
     handleClickPreview = () => {
       this.setState({ showPreview: false })
-    }
+    };
 
     showPreview = () => {
       this.setState({ showPreview: true })
-    }
+    };
 
     getDuration = () => {
       if (!this.player) return null
       return this.player.getDuration()
-    }
+    };
 
     getCurrentTime = () => {
       if (!this.player) return null
       return this.player.getCurrentTime()
-    }
+    };
 
     getSecondsLoaded = () => {
       if (!this.player) return null
       return this.player.getSecondsLoaded()
-    }
+    };
 
     getInternalPlayer = (key = 'player') => {
       if (!this.player) return null
       return this.player.getInternalPlayer(key)
-    }
+    };
 
     seekTo = (fraction, type) => {
       if (!this.player) return null
       this.player.seekTo(fraction, type)
-    }
+    };
 
     handleReady = () => {
       this.props.onReady(this)
-    }
+    };
 
-    getActivePlayer = memoize(url => {
+    getActivePlayer = memoize((url) => {
       for (const player of [...customPlayers, ...players]) {
         if (player.canPlay(url)) {
           return player
@@ -115,21 +124,22 @@ export const createReactPlayer = (players, fallback) => {
         return fallback
       }
       return null
-    })
+    });
 
     getConfig = memoize((url, key) => {
       const { config } = this.props
+      console.log('getConfig tracks')
       return merge.all([
         defaultProps.config,
         defaultProps.config[key] || {},
         config,
         config[key] || {}
       ])
-    })
+    });
 
-    getAttributes = memoize(url => {
+    getAttributes = memoize((url) => {
       return omit(this.props, SUPPORTED_PROPS)
-    })
+    });
 
     renderPreview (url) {
       if (!url) return null
@@ -144,11 +154,16 @@ export const createReactPlayer = (players, fallback) => {
       )
     }
 
-    renderActivePlayer = url => {
+    renderActivePlayer = (url) => {
+      const {
+        config: {
+          file: { tracks }
+        }
+      } = this.props
       if (!url) return null
       const player = this.getActivePlayer(url)
       if (!player) return null
-      const config = this.getConfig(url, player.key)
+      const config = this.getConfig(url, player.key, tracks)
       return (
         <Player
           {...this.props}
@@ -159,14 +174,18 @@ export const createReactPlayer = (players, fallback) => {
           onReady={this.handleReady}
         />
       )
-    }
+    };
 
     render () {
       const { url, style, width, height, wrapper: Wrapper } = this.props
       const { showPreview } = this.state
       const attributes = this.getAttributes(url)
       return (
-        <Wrapper ref={this.references.wrapper} style={{ ...style, width, height }} {...attributes}>
+        <Wrapper
+          ref={this.references.wrapper}
+          style={{ ...style, width, height }}
+          {...attributes}
+        >
           <UniversalSuspense fallback={null}>
             {showPreview
               ? this.renderPreview(url)
